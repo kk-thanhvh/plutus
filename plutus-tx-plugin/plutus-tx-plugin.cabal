@@ -153,4 +153,5 @@ executable profile
         serialise -any,
         template-haskell -any,
         text -any,
+        time -any,
         lens -any,
