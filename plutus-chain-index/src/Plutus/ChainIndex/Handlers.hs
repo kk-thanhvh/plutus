@@ -44,10 +44,10 @@ import           Plutus.ChainIndex.ChainIndexLog   (ChainIndexLog (..))
 import           Plutus.ChainIndex.DbStore
 import           Plutus.ChainIndex.Effects         (ChainIndexControlEffect (..), ChainIndexQueryEffect (..))
 import           Plutus.ChainIndex.Tx
+import qualified Plutus.ChainIndex.TxUtxoBalance   as TxUtxoBalance
 import           Plutus.ChainIndex.Types           (BlockId (BlockId), BlockNumber (BlockNumber), Diagnostics (..),
-                                                    Tip (..), pageOf)
-import           Plutus.ChainIndex.UtxoState       (InsertUtxoSuccess (..), RollbackResult (..), TxUtxoBalance,
-                                                    UtxoIndex)
+                                                    Tip (..), TxUtxoBalance, pageOf)
+import           Plutus.ChainIndex.UtxoState       (InsertUtxoSuccess (..), RollbackResult (..), UtxoIndex)
 import qualified Plutus.ChainIndex.UtxoState       as UtxoState
 import           Plutus.V1.Ledger.Api              (Credential (PubKeyCredential, ScriptCredential))
 import           PlutusTx.Builtins.Internal        (BuiltinByteString (..))
@@ -74,11 +74,11 @@ handleQuery = \case
         utxoState <- gets @ChainIndexState FT.measure
         case UtxoState.tip utxoState of
             TipAtGenesis -> throwError QueryFailedNoTip
-            tp           -> pure (tp, UtxoState.isUnspentOutput r utxoState)
+            tp           -> pure (tp, TxUtxoBalance.isUnspentOutput r utxoState)
     UtxoSetAtAddress cred -> do
         utxoState <- gets @ChainIndexState FT.measure
         outRefs <- queryList . select $ _addressRowOutRef <$> filter_ (\row -> _addressRowCred row ==. val_ (toByteString cred)) (all_ (addressRows db))
-        let page = pageOf def $ Set.fromList $ filter (\r -> UtxoState.isUnspentOutput r utxoState) outRefs
+        let page = pageOf def $ Set.fromList $ filter (\r -> TxUtxoBalance.isUnspentOutput r utxoState) outRefs
         case UtxoState.tip utxoState of
             TipAtGenesis -> do
                 logWarn TipIsGenesis
@@ -174,7 +174,7 @@ handleControl ::
 handleControl = \case
     AppendBlock tip_ transactions -> do
         oldState <- get @ChainIndexState
-        case UtxoState.insert (UtxoState.fromBlock tip_ transactions) oldState of
+        case UtxoState.insert (TxUtxoBalance.fromBlock tip_ transactions) oldState of
             Left err -> do
                 let reason = InsertionFailed err
                 logError $ Err reason
@@ -186,7 +186,7 @@ handleControl = \case
                 logDebug $ InsertionSuccess tip_ insertPosition
     Rollback tip_ -> do
         oldState <- get @ChainIndexState
-        case UtxoState.rollback tip_ oldState of
+        case TxUtxoBalance.rollback tip_ oldState of
             Left err -> do
                 let reason = RollbackFailed err
                 logError $ Err reason
@@ -201,7 +201,7 @@ handleControl = \case
         utxos <- gets $
             Set.toList
             . Set.map txOutRefId
-            . UtxoState.unspentOutputs
+            . TxUtxoBalance.unspentOutputs
             . UtxoState.utxoState
         insertRows <- foldMap fromTx . catMaybes <$> mapM getTxFromTxId utxos
         combined $
