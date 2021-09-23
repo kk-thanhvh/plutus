@@ -39,7 +39,7 @@ import           Data.Proxy                              (Proxy (..))
 import qualified Data.Set                                as Set
 import           Data.Text                               (Text)
 import qualified Data.UUID                               as UUID
-import           Ledger                                  (Value, pubKeyHash)
+import           Ledger                                  (Value)
 import           Ledger.Constraints.OffChain             (UnbalancedTx)
 import           Ledger.Tx                               (Tx)
 import           Plutus.Contract.Effects                 (PABReq, _ExposeEndpointReq)
@@ -57,7 +57,7 @@ import qualified Servant.Server                          as Servant
 import           Servant.Swagger.UI                      (SwaggerSchemaUI', swaggerSchemaUIServer)
 import qualified Wallet.Effects
 import           Wallet.Emulator.Error                   (WalletAPIError)
-import           Wallet.Emulator.Wallet                  (Wallet (..), WalletId, knownWallet)
+import           Wallet.Emulator.Wallet                  (Wallet (..), WalletId, knownWallet, walletPubKey)
 import           Wallet.Types                            (ContractInstanceId (..))
 
 healthcheck :: forall t env. PABAction t env ()
@@ -208,7 +208,7 @@ walletProxy ::
 walletProxy createNewWallet =
     createNewWallet
     :<|> (\w tx -> fmap (const NoContent) (Core.handleAgentThread (Wallet w) $ Wallet.Effects.submitTxn tx))
-    :<|> (\w -> (\pk -> WalletInfo{wiWallet=Wallet w, wiPubKey = pk, wiPubKeyHash = pubKeyHash pk }) <$> Core.handleAgentThread (Wallet w) Wallet.Effects.ownPubKey)
+    :<|> (\w -> (\pkh -> WalletInfo{wiWallet=Wallet w, wiPubKey = walletPubKey (Wallet w), wiPubKeyHash = pkh }) <$> Core.handleAgentThread (Wallet w) Wallet.Effects.ownPubKeyHash)
     :<|> (\w -> Core.handleAgentThread (Wallet w) . Wallet.Effects.balanceTx)
     :<|> (\w -> Core.handleAgentThread (Wallet w) Wallet.Effects.totalFunds)
     :<|> (\w tx -> Core.handleAgentThread (Wallet w) $ Wallet.Effects.walletAddSignature tx)

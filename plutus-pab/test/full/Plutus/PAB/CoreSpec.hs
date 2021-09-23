@@ -42,7 +42,7 @@ import qualified Data.Set                                 as Set
 import           Data.Text                                (Text)
 import qualified Data.Text                                as Text
 import           Data.Text.Extras                         (tshow)
-import           Ledger                                   (pubKeyAddress)
+import           Ledger                                   (pubKeyAddress, pubKeyHash, pubKeyHashAddress)
 import           Ledger.Ada                               (adaSymbol, adaToken, lovelaceValueOf)
 import qualified Ledger.Ada                               as Ada
 import qualified Ledger.AddressMap                        as AM
@@ -68,7 +68,7 @@ import           PlutusTx.Monoid                          (Group (inv))
 import           Test.QuickCheck.Instances.UUID           ()
 import           Test.Tasty                               (TestTree, defaultMain, testGroup)
 import           Test.Tasty.HUnit                         (testCase)
-import           Wallet.API                               (WalletAPIError, ownPubKey)
+import           Wallet.API                               (WalletAPIError, ownPubKeyHash)
 import qualified Wallet.API                               as WAPI
 import qualified Wallet.Emulator.Chain                    as Chain
 import           Wallet.Emulator.Wallet                   (Wallet, knownWallet)
@@ -166,7 +166,7 @@ walletFundsChangeTest = runScenario $ do
     let stream = WS.walletFundsChange defaultWallet env
     (initialValue, next) <- liftIO (readOne stream)
     (wllt, pk) <- Simulator.addWallet
-    _ <- Simulator.payToPublicKey defaultWallet pk payment
+    _ <- Simulator.payToPublicKeyHash defaultWallet (pubKeyHash pk) payment
     nextStream <- case next of { Nothing -> throwError (OtherError "no next value"); Just a -> pure a; }
     (finalValue, _) <- liftIO (readOne nextStream)
     let difference = initialValue <> inv finalValue
@@ -220,7 +220,7 @@ guessingGameTest =
               let openingBalance = 100_000_000_000
                   lockAmount = 15
                   walletFundsChange msg delta = do
-                        address <- pubKeyAddress <$> Simulator.handleAgentThread defaultWallet ownPubKey
+                        address <- pubKeyHashAddress <$> Simulator.handleAgentThread defaultWallet ownPubKeyHash
                         balance <- Simulator.valueAt address
                         fees <- Simulator.walletFees defaultWallet
                         assertEqual msg
