@@ -44,7 +44,7 @@ import qualified Ledger.Ada                  as Ada
 import           Ledger.Bytes                (LedgerBytes (..))
 import           Ledger.Constraints          (mustPayToPubKey)
 import           Ledger.Constraints.OffChain (UnbalancedTx (..), mkTx)
-import           Ledger.Crypto               (PubKey (..), pubKeyHash)
+import           Ledger.Crypto               (PubKey (..))
 import           Ledger.Tx                   (Tx (..), TxOutRef, txInRef)
 import qualified Plutus.Contract.CardanoAPI  as CardanoAPI
 import qualified Plutus.Contract.Request     as Contract
@@ -102,8 +102,8 @@ handleTx = balanceTx >=> either throwError WAPI.signTxAndSubmit
 -- | Get an unspent output belonging to the wallet.
 getUnspentOutput :: AsContractError e => Contract w s e TxOutRef
 getUnspentOutput = do
-    ownPK <- Contract.ownPubKey
-    let constraints = mustPayToPubKey (pubKeyHash ownPK) (Ada.lovelaceValueOf 1)
+    ownPK <- Contract.ownPubKeyHash
+    let constraints = mustPayToPubKey ownPK (Ada.lovelaceValueOf 1)
     utx <- either (throwing _ConstraintResolutionError) pure (mkTx @Void mempty constraints)
     tx <- Contract.balanceTx utx
     case Set.lookupMin (txInputs tx) of
