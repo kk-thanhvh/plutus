@@ -15,6 +15,7 @@ module Plutus.ChainIndex.TxIdState(
     , fromBlock
     , rollback
     , chainConstant
+    , dropOlder
     ) where
 
 import           Control.Lens                ((^.))
@@ -27,8 +28,8 @@ import           Plutus.ChainIndex.Tx        (ChainIndexTx (..), ChainIndexTxOut
 import           Plutus.ChainIndex.Types     (BlockNumber (..), Depth (..), Point (..), Tip (..), TxConfirmedState (..),
                                               TxIdState (..), TxStatus (..), TxStatusFailure (..), TxValidity (..),
                                               pointsToTip)
-import           Plutus.ChainIndex.UtxoState (RollbackFailed (..), RollbackResult (..), UtxoIndex, UtxoState (..), tip,
-                                              viewTip)
+import           Plutus.ChainIndex.UtxoState (RollbackFailed (..), RollbackResult (..), UtxoIndex, UtxoState (..),
+                                              pointLessThanTip, tip, viewTip)
 
 
 -- | The 'TxStatus' of a transaction right after it was added to the chain
@@ -47,6 +48,19 @@ increaseDepth e            = e
 -- | The depth (in blocks) after which a transaction cannot be rolled back anymore
 chainConstant :: Depth
 chainConstant = Depth 8
+
+-- | Drop everything older than 'BlockNumber' in the index.
+dropOlder :: Measured (UtxoState a) (UtxoState a)
+          => BlockNumber
+          -> UtxoIndex a
+          -> UtxoIndex a
+dropOlder targetBlock idx =
+  let (_older, toKeep) = FT.split (blockLessThanTip targetBlock . tip) idx
+    in toKeep
+
+blockLessThanTip :: BlockNumber -> Tip -> Bool
+blockLessThanTip blockTarget (Tip _ _ blockAtTip) = blockTarget < blockAtTip
+blockLessThanTip _                  TipAtGenesis  = False
 
 -- | Given the current block, compute the status for the given transaction by
 -- checking to see if it has been deleted.
@@ -135,8 +149,3 @@ rollback targetPoint idx@(viewTip -> currentTip)
                           newUtxoState = UtxoState (oldTxIdState <> newTxIdState) oldTip
                        in Right RollbackResult{newTip=oldTip, rolledBackIndex=before |> newUtxoState }
                    | otherwise -> Left  TipMismatch{foundTip=oldTip, targetPoint}
-    where
-      pointLessThanTip :: Point -> Tip -> Bool
-      pointLessThanTip PointAtGenesis  _               = True
-      pointLessThanTip (Point pSlot _) (Tip tSlot _ _) = pSlot < tSlot
-      pointLessThanTip _               TipAtGenesis    = False
