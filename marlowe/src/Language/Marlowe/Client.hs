@@ -43,7 +43,7 @@ import qualified Language.Marlowe.Semantics   as Marlowe
 import           Language.Marlowe.Util        (extractContractRoles)
 import           Ledger                       (CurrencySymbol, Datum (..), PubKeyHash, ScriptContext (..), Slot (..),
                                                TokenName, TxOut (..), ValidatorHash, inScripts, mkValidatorScript,
-                                               pubKeyHash, txOutValue, validatorHash, valueSpent)
+                                               txOutValue, validatorHash, valueSpent)
 import qualified Ledger
 import           Ledger.Ada                   (adaSymbol, adaValueOf)
 import           Ledger.Address               (pubKeyHashAddress, scriptHashAddress)
@@ -56,7 +56,7 @@ import qualified Ledger.Typed.Scripts         as Scripts
 import           Ledger.Typed.Tx              (TypedScriptTxOut (..), tyTxOutData)
 import qualified Ledger.Value                 as Val
 import           Plutus.ChainIndex            (_ValidTx, citxInputs, citxOutputs, citxTxId)
-import           Plutus.Contract
+import           Plutus.Contract              as Contract
 import           Plutus.Contract.StateMachine (AsSMContractError (..), StateMachine (..), StateMachineClient (..), Void,
                                                WaitingResult (..))
 import qualified Plutus.Contract.StateMachine as SM
@@ -378,7 +378,7 @@ setupMarloweParams
     (AsMarloweError e)
     => RoleOwners -> Marlowe.Contract -> Contract MarloweContractState s e (MarloweParams, TxConstraints i o)
 setupMarloweParams owners contract = mapError (review _MarloweError) $ do
-    creator <- pubKeyHash <$> ownPubKey
+    creator <- Contract.ownPubKeyHash
     let roles = extractContractRoles contract
     if Set.null roles
     then do
@@ -664,7 +664,7 @@ marloweCompanionContract :: Contract CompanionState MarloweCompanionSchema Marlo
 marloweCompanionContract = contracts
   where
     contracts = do
-        pkh <- pubKeyHash <$> ownPubKey
+        pkh <- Contract.ownPubKeyHash
         let ownAddress = pubKeyHashAddress pkh
         utxo <- utxosAt ownAddress
         let txOuts = fmap Ledger.toTxOut $ Map.elems utxo
