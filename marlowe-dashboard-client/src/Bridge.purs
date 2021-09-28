@@ -84,7 +84,7 @@ instance eitherBridge :: (Bridge a c, Bridge b d) => Bridge (Either a b) (Either
 
 instance maybeBridge :: (Bridge a b) => Bridge (Maybe a) (Maybe b) where
   toFront = map toFront
-  toBack  = map toBack
+  toBack = map toBack
 
 instance mapBridge :: (Ord a, Ord c, Bridge a c, Bridge b d) => Bridge (Back.Map a b) (Front.Map c d) where
   toFront map = Front.fromFoldable $ toFront <$> Back.toTuples map
